@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+*.exe
+*.o
+*.obj
+socialconnect
+viz.html
+.vscode/
+.DS_Store
