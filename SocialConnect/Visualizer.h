@@ -1,0 +1,38 @@
+#ifndef VISUALIZER_H
+#define VISUALIZER_H
+
+#include "Graph.h"
+#include <string>
+
+/**
+ * @brief Visualizer class handles all output to the terminal and external files.
+ * Uses ANSI color codes for rich terminal experience.
+ */
+class Visualizer {
+public:
+    // Terminal Colors (ANSI)
+    static const std::string RESET;
+    static const std::string GREEN;
+    static const std::string YELLOW;
+    static const std::string RED;
+    static const std::string CYAN;
+    static const std::string MAGENTA;
+    static const std::string BOLD;
+
+    // Output Helpers
+    static void printHeader(const std::string& title);
+    static void printInfo(const std::string& message);
+    static void printSuccess(const std::string& message);
+    static void printWarning(const std::string& message);
+    static void printError(const std::string& message);
+    static void printStep(const std::string& step);
+
+    // Graph Visuals
+    static void displayAdjList(const Graph& graph);
+    static void displayASCII(const Graph& graph);
+    
+    // File/Web Visualizer
+    static void generateHTML(const Graph& graph, const std::string& filename = "viz.html");
+};
+
+#endif // VISUALIZER_H
