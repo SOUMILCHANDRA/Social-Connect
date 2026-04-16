@@ -4,7 +4,8 @@ dist/
 *.exe
 *.o
 *.obj
-socialconnect
 viz.html
 .vscode/
 .DS_Store
+/SocialConnect/socialconnect
+/SocialConnect/viz.html
