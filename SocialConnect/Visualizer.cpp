@@ -13,22 +13,27 @@ const std::string Visualizer::BOLD    = "\033[1m";
 
 void Visualizer::printHeader(const std::string& title) {
     std::cout << "\n" << BOLD << MAGENTA << "=== " << title << " ===" << RESET << "\n";
+    std::cout.flush();
 }
 
 void Visualizer::printInfo(const std::string& message) {
     std::cout << YELLOW << message << RESET << "\n";
+    std::cout.flush();
 }
 
 void Visualizer::printSuccess(const std::string& message) {
     std::cout << GREEN << message << RESET << "\n";
+    std::cout.flush();
 }
 
 void Visualizer::printError(const std::string& message) {
     std::cerr << RED << message << RESET << "\n";
+    std::cerr.flush();
 }
 
 void Visualizer::printStep(const std::string& step) {
     std::cout << CYAN << "  > " << step << RESET << "\n";
+    std::cout.flush();
 }
 
 // Added this since I used it in Graph.cpp

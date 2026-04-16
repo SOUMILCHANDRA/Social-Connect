@@ -48,6 +48,8 @@ void showMenu() {
 }
 
 int main() {
+    std::ios_base::sync_with_stdio(true);
+    std::cin.tie(NULL);
     Graph socialGraph(GraphMode::UNDIRECTED);
     int choice = -1;
 

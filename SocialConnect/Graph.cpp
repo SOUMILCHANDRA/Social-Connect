@@ -10,6 +10,7 @@
 Graph::Graph(GraphMode m) : mode(m) {}
 
 void Graph::addNode(const std::string& name) {
+    std::cerr << "[DEBUG] function reached: addNode" << std::endl;
     Visualizer::printHeader("ADD NODE");
     if (adjList.find(name) == adjList.end()) {
         adjList[name] = {};
@@ -22,6 +23,7 @@ void Graph::addNode(const std::string& name) {
 }
 
 void Graph::addEdge(const std::string& src, const std::string& dest, int weight) {
+    std::cerr << "[DEBUG] function reached: addEdge" << std::endl;
     Visualizer::printHeader("ADD CONNECTION");
     if (adjList.find(src) == adjList.end() || adjList.find(dest) == adjList.end()) {
         Visualizer::printError("> One or both users do not exist!");
@@ -48,6 +50,7 @@ void Graph::addEdge(const std::string& src, const std::string& dest, int weight)
 }
 
 void Graph::removeNode(const std::string& name) {
+    std::cerr << "[DEBUG] function reached: removeNode" << std::endl;
     Visualizer::printHeader("REMOVE NODE");
     if (adjList.erase(name)) {
         // Remove all edges pointing to this node
@@ -66,6 +69,7 @@ void Graph::removeNode(const std::string& name) {
 }
 
 void Graph::removeEdge(const std::string& src, const std::string& dest) {
+    std::cerr << "[DEBUG] function reached: removeEdge" << std::endl;
     Visualizer::printHeader("REMOVE CONNECTION");
     if (adjList.find(src) != adjList.end()) {
         auto& neighbors = adjList[src];
@@ -102,6 +106,7 @@ GraphMode Graph::getMode() const { return mode; }
 void Graph::setMode(GraphMode m) { mode = m; }
 
 void Graph::bfs(const std::string& startNode) {
+    std::cerr << "[DEBUG] function reached: bfs" << std::endl;
     Visualizer::printHeader("BFS TRAVERSAL from " + startNode);
     if (adjList.find(startNode) == adjList.end()) {
         Visualizer::printError("> Start node not found!");
@@ -148,6 +153,7 @@ void Graph::bfs(const std::string& startNode) {
 }
 
 void Graph::dfs(const std::string& startNode) {
+    std::cerr << "[DEBUG] function reached: dfs" << std::endl;
     Visualizer::printHeader("DFS TRAVERSAL from " + startNode);
     if (adjList.find(startNode) == adjList.end()) {
         Visualizer::printError("> Start node not found!");
@@ -198,6 +204,7 @@ void Graph::dfs(const std::string& startNode) {
 }
 
 void Graph::dijkstra(const std::string& startNode, const std::string& targetNode) {
+    std::cerr << "[DEBUG] function reached: dijkstra" << std::endl;
     Visualizer::printHeader("DIJKSTRA'S ALGORITHM: " + startNode + " to " + targetNode);
     if (adjList.find(startNode) == adjList.end() || adjList.find(targetNode) == adjList.end()) {
         Visualizer::printError("> One or both nodes not found!");
@@ -254,6 +261,7 @@ void Graph::dijkstra(const std::string& startNode, const std::string& targetNode
 }
 
 void Graph::primMST() {
+    std::cerr << "[DEBUG] function reached: primMST" << std::endl;
     Visualizer::printHeader("PRIM'S ALGORITHM - MINIMUM SPANNING TREE");
     if (adjList.empty()) {
         Visualizer::printError("> Graph is empty!");
