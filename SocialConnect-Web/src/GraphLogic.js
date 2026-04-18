@@ -2,200 +2,135 @@ export class Graph {
   constructor(mode = 'UNDIRECTED') {
     this.adjList = new Map();
     this.mode = mode;
-    this.onLog = null; // Callback for terminal logs
+    this.onLog = null; 
+    this.nodes = [];
+    this.links = [];
+    this.directed = false;
+    this.sse = null;
+    this.onUpdate = null; // Callback for React re-render
+
+    this.connect();
   }
 
   log(message, type = 'info') {
     if (this.onLog) this.onLog(message, type);
   }
 
-  addNode(name) {
-    if (!this.adjList.has(name)) {
-      this.adjList.set(name, []);
-      this.log(`=== ADD NODE ===`, 'header');
-      this.log(`Adding user: ${name}`, 'success');
-      this.log(`Current graph size: ${this.adjList.size} node(s)`, 'info');
-      return true;
-    }
-    this.log(`User ${name} already exists!`, 'error');
-    return false;
+  connect() {
+    if (this.sse) this.sse.close();
+    
+    const host = window.location.hostname + ':8080';
+    this.sse = new EventSource(`http://${host}/events`);
+    
+    this.sse.onopen = () => {
+      this.log('SSE BRIDGE: Connected to C++ Backend', 'success');
+      this.fetchState(host);
+    };
+
+    this.sse.onerror = (e) => {
+      this.log('SSE BRIDGE: Disconnected. Retrying...', 'error');
+    };
+
+    this.sse.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      this.handleEvent(data);
+    };
   }
 
-  addEdge(u, v, weight = 1) {
-    if (!this.adjList.has(u) || !this.adjList.has(v)) {
-      this.log(`One or both users do not exist!`, 'error');
-      return false;
+  async fetchState(host) {
+    try {
+      const res = await fetch(`http://${host || (window.location.hostname + ':8080')}/state`);
+      const data = await res.json();
+      this.updateLocalState(data);
+    } catch (e) {
+      console.error('Fetch state failed', e);
     }
+  }
+
+  updateLocalState(data) {
+    this.nodes = data.nodes || [];
+    this.links = data.links || [];
+    this.directed = data.directed || false;
+    this.mode = this.directed ? 'DIRECTED' : 'UNDIRECTED';
     
-    const uEdges = this.adjList.get(u);
-    if (uEdges.some(e => e.node === v)) {
-      this.log(`Connection already exists!`, 'error');
-      return false;
-    }
+    // Update adjList size for UI node count display
+    this.adjList = new Map(this.nodes.map(n => [n.id, []]));
+    
+    if (this.onUpdate) this.onUpdate();
+  }
 
-    this.log(`=== ADD CONNECTION ===`, 'header');
-    uEdges.push({ node: v, weight });
-    this.log(`Added edge: ${u} -> ${v} (Weight: ${weight})`, 'success');
-
-    if (this.mode === 'UNDIRECTED') {
-      this.adjList.get(v).push({ node: u, weight });
-      this.log(`Added reverse edge (Undirected): ${v} -> ${u}`, 'success');
+  handleEvent(e) {
+    switch(e.type) {
+      case "STATE_SYNC":
+        this.updateLocalState(e);
+        break;
+      case "LOG":
+        e.lines.forEach(line => this.log(line, 'step'));
+        break;
+      case "BFS_STEP":
+      case "DFS_STEP":
+        this.log(`${e.type}: Visiting ${e.node}`, 'info');
+        // We could also highlight in D3 here if we had a reference
+        break;
+      case "BFS_COMPLETE":
+      case "DFS_COMPLETE":
+        this.log(`${e.type}: ${e.order.join(' -> ')}`, 'success');
+        break;
+      case "DIJKSTRA_RELAX":
+        if (e.updated) this.log(`Dijkstra: Updated ${e.v} (Dist: ${e.dist})`, 'info');
+        break;
+      case "DIJKSTRA_COMPLETE":
+        this.log(`Dijkstra: Path Found! Cost: ${e.cost} | ${e.path.join(' -> ')}`, 'success');
+        break;
+      case "MST_EDGE":
+        this.log(`MST: Added ${e.u} -- ${e.v}`, 'info');
+        break;
+      case "MST_COMPLETE":
+        this.log(`MST: Found! Total Cost: ${e.totalCost}`, 'success');
+        break;
     }
+  }
+
+  async apiCommand(command, params) {
+    const host = window.location.hostname + ':8080';
+    try {
+      await fetch(`http://${host}/api/command`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command, ...params })
+      });
+    } catch (e) {
+      this.log('API Error: ' + e.message, 'error');
+    }
+  }
+
+  addNode(name) {
+    if (!name) return false;
+    this.apiCommand('add_node', { name });
+    return true; 
+  }
+
+  addEdge(from, to, weight = 1) {
+    if (!from || !to) return false;
+    this.apiCommand('add_edge', { from, to, weight });
     return true;
   }
 
   removeNode(name) {
-    if (this.adjList.has(name)) {
-      this.adjList.delete(name);
-      for (let [node, edges] of this.adjList) {
-        this.adjList.set(node, edges.filter(e => e.node !== name));
-      }
-      this.log(`=== REMOVE NODE ===`, 'header');
-      this.log(`Removed user: ${name}`, 'success');
-      return true;
-    }
-    return false;
+    this.apiCommand('remove_node', { name });
+    return true;
   }
 
-  async bfs(startNode) {
-    if (!this.adjList.has(startNode)) return;
-    this.log(`=== BFS TRAVERSAL from ${startNode} ===`, 'header');
-    
-    let queue = [startNode];
-    let visited = new Set([startNode]);
-    let order = [];
-
-    while (queue.length > 0) {
-      this.log(`Queue: [${queue.join(', ')}]`, 'step');
-      let curr = queue.shift();
-      order.push(curr);
-      this.log(`Visiting: ${curr}`, 'step');
-
-      for (let neighbor of this.adjList.get(curr)) {
-        if (!visited.has(neighbor.node)) {
-          visited.add(neighbor.node);
-          queue.push(neighbor.node);
-        }
-      }
-      await new Promise(r => setTimeout(r, 400)); // Animated log pause
-    }
-    this.log(`BFS Order: ${order.join(' -> ')}`, 'success');
-  }
-
-  async dfs(startNode) {
-    if (!this.adjList.has(startNode)) return;
-    this.log(`=== DFS TRAVERSAL from ${startNode} ===`, 'header');
-    
-    let stack = [startNode];
-    let visited = new Set();
-    let order = [];
-
-    while (stack.length > 0) {
-      let curr = stack.pop();
-      if (!visited.has(curr)) {
-        visited.add(curr);
-        order.push(curr);
-        this.log(`Visiting: ${curr}`, 'step');
-
-        const neighbors = [...this.adjList.get(curr)].reverse();
-        for (let neighbor of neighbors) {
-          if (!visited.has(neighbor.node)) {
-            stack.push(neighbor.node);
-          }
-        }
-        this.log(`Stack after neighbors: [${stack.join(', ')}]`, 'step');
-        await new Promise(r => setTimeout(r, 400));
-      }
-    }
-    this.log(`DFS Order: ${order.join(' -> ')}`, 'success');
-  }
-
-  async dijkstra(start, end) {
-    if (!this.adjList.has(start) || !this.adjList.has(end)) return;
-    this.log(`=== DIJKSTRA'S ALGORITHM: ${start} to ${end} ===`, 'header');
-
-    let distances = {};
-    let parents = {};
-    let pq = [{ node: start, dist: 0 }];
-
-    for (let node of this.adjList.keys()) distances[node] = Infinity;
-    distances[start] = 0;
-
-    while (pq.length > 0) {
-      pq.sort((a, b) => a.dist - b.dist);
-      let { node: u, dist: d } = pq.shift();
-
-      if (d > distances[u]) continue;
-      this.log(`Relaxing neighbors of ${u} (Dist: ${d})`, 'step');
-
-      for (let { node: v, weight: w } of this.adjList.get(u)) {
-        if (distances[u] + w < distances[v]) {
-          distances[v] = distances[u] + w;
-          parents[v] = u;
-          pq.push({ node: v, dist: distances[v] });
-          this.log(`  - Updated ${v} | Dist: ${distances[v]} | Prev: ${u}`, 'step');
-        }
-      }
-      await new Promise(r => setTimeout(r, 400));
-    }
-
-    if (distances[end] === Infinity) {
-      this.log(`No path found!`, 'error');
-    } else {
-      let path = [];
-      for (let at = end; at; at = parents[at]) path.push(at);
-      this.log(`Shortest Path: ${path.reverse().join(' -> ')}`, 'success');
-      this.log(`Total Strength: ${distances[end]}`, 'success');
-    }
-  }
-
-  async primMST() {
-    if (this.adjList.size === 0) return;
-    this.log(`=== PRIM'S ALGORITHM (MST) ===`, 'header');
-    
-    let start = this.adjList.keys().next().value;
-    let inMST = new Set([start]);
-    let edges = [];
-    let totalWeight = 0;
-
-    while (inMST.size < this.adjList.size) {
-      let minEdge = { u: null, v: null, w: Infinity };
-      
-      for (let u of inMST) {
-        for (let { node: v, weight: w } of this.adjList.get(u)) {
-          if (!inMST.has(v) && w < minEdge.w) {
-            minEdge = { u, v, w };
-          }
-        }
-      }
-
-      if (minEdge.u === null) break;
-
-      inMST.add(minEdge.v);
-      edges.push(minEdge);
-      totalWeight += minEdge.w;
-      this.log(`Added edge: ${minEdge.u} --(${minEdge.w})-- ${minEdge.v}`, 'step');
-      await new Promise(r => setTimeout(r, 400));
-    }
-
-    this.log(`MST complete. Total Weight: ${totalWeight}`, 'success');
-  }
+  bfs(start) { this.apiCommand('bfs', { start }); }
+  dfs(start) { this.apiCommand('dfs', { start }); }
+  dijkstra(start, end) { this.apiCommand('dijkstra', { start, end }); }
+  primMST(start) { this.apiCommand('prims', { start: start || this.nodes[0]?.id }); }
 
   getD3Data() {
-    const nodes = Array.from(this.adjList.keys()).map(id => ({ id }));
-    const links = [];
-    const handled = new Set();
-
-    for (let [u, neighbors] of this.adjList) {
-      for (let { node: v, weight } of neighbors) {
-        if (this.mode === 'UNDIRECTED') {
-          const pair = u < v ? u + v : v + u;
-          if (handled.has(pair)) continue;
-          handled.add(pair);
-        }
-        links.push({ source: u, target: v, value: weight });
-      }
-    }
-    return { nodes, links };
+    return { nodes: this.nodes, links: this.links.map(l => ({
+      source: l.source,
+      target: l.target,
+      value: l.weight
+    })) };
   }
 }

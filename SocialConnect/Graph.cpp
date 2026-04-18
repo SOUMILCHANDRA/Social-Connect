@@ -6,22 +6,19 @@
 #include <limits>
 #include <queue>
 #include <set>
+#include <stack>
 #include <unordered_set>
+#include <sstream>
 
 namespace {
-constexpr int INF = std::numeric_limits<int>::max() / 4;
+constexpr int INF = 1e9;
 }
 
-Graph::Graph(bool directed) : directed(directed) {
-    Visualizer::debug("Graph constructor reached");
-}
+Graph::Graph(bool directed) : directed(directed) {}
 
 void Graph::setDirected(bool isDirected) {
-    Visualizer::debug("setDirected reached");
+    std::lock_guard<std::recursive_mutex> lock(mtx);
     directed = isDirected;
-    Visualizer::header("SET MODE");
-    Visualizer::info(std::string("Graph mode set to: ") + (directed ? "DIRECTED" : "UNDIRECTED"));
-    Visualizer::divider();
 }
 
 bool Graph::isDirected() const {
@@ -34,9 +31,7 @@ bool Graph::hasNode(const std::string& name) const {
 
 bool Graph::edgeExists(const std::string& from, const std::string& to) const {
     auto iterator = adjacency.find(from);
-    if (iterator == adjacency.end()) {
-        return false;
-    }
+    if (iterator == adjacency.end()) return false;
     return std::any_of(iterator->second.begin(), iterator->second.end(),
         [&](const Edge& edge) { return edge.to == to; });
 }
@@ -48,527 +43,277 @@ void Graph::sortNeighbors(std::vector<Edge>& neighbors) const {
 }
 
 bool Graph::addNode(const std::string& name) {
-    Visualizer::debug("addNode reached");
-
-    if (name.empty()) {
-        Visualizer::header("ADD NODE");
-        Visualizer::error("User name cannot be empty.");
-        Visualizer::divider();
-        return false;
-    }
-
-    if (hasNode(name)) {
-        Visualizer::header("ADD NODE");
-        Visualizer::warn("User already exists: " + name);
-        Visualizer::divider();
-        return false;
-    }
-
+    std::lock_guard<std::recursive_mutex> lock(mtx);
+    if (name.empty() || hasNode(name)) return false;
     adjacency[name] = {};
-
-    Visualizer::header("ADD NODE");
-    std::cout << GREEN << "› Adding user: " << RESET << name << "\n";
-    std::cout << "› Current graph size: " << adjacency.size() << " node(s)\n";
-    std::cout << "› Adjacency List:\n";
-    printAdjacencyList();
-    Visualizer::divider();
     return true;
 }
 
 bool Graph::removeNode(const std::string& name) {
-    Visualizer::debug("removeNode reached");
-    Visualizer::header("REMOVE NODE");
-
-    if (!hasNode(name)) {
-        Visualizer::error("User not found: " + name);
-        Visualizer::divider();
-        return false;
-    }
-
+    std::lock_guard<std::recursive_mutex> lock(mtx);
+    if (!hasNode(name)) return false;
     adjacency.erase(name);
-
     for (auto& [user, neighbors] : adjacency) {
-        neighbors.erase(
-            std::remove_if(neighbors.begin(), neighbors.end(),
-                [&](const Edge& edge) { return edge.to == name; }),
-            neighbors.end()
-        );
+        neighbors.erase(std::remove_if(neighbors.begin(), neighbors.end(),
+            [&](const Edge& edge) { return edge.to == name; }), neighbors.end());
     }
-
-    Visualizer::success("Removed user: " + name);
-    Visualizer::info("Current graph size: " + std::to_string(adjacency.size()) + " node(s)");
-    Visualizer::info("Adjacency List:");
-    printAdjacencyList();
-    Visualizer::divider();
     return true;
 }
 
 bool Graph::addEdge(const std::string& from, const std::string& to, int weight) {
-    Visualizer::debug("addEdge reached");
-    Visualizer::header("ADD CONNECTION");
-
-    if (!hasNode(from) || !hasNode(to)) {
-        Visualizer::error("Both users must exist before adding a connection.");
-        Visualizer::divider();
-        return false;
-    }
-
-    if (from == to) {
-        Visualizer::error("Self connections are not allowed.");
-        Visualizer::divider();
-        return false;
-    }
-
-    if (weight < 1 || weight > 10) {
-        Visualizer::warn("Weight out of range. Clamping to 1-10.");
-        weight = std::max(1, std::min(10, weight));
-    }
-
+    std::lock_guard<std::recursive_mutex> lock(mtx);
+    if (!hasNode(from) || !hasNode(to) || from == to) return false;
+    
     if (edgeExists(from, to)) {
-        for (auto& edge : adjacency[from]) {
-            if (edge.to == to) {
-                edge.weight = weight;
-            }
-        }
+        for (auto& edge : adjacency[from]) if (edge.to == to) edge.weight = weight;
     } else {
         adjacency[from].push_back({to, weight});
     }
     sortNeighbors(adjacency[from]);
 
-    std::cout << "› Added edge: " << from << " → " << to << " (Weight: " << weight << ")\n";
-
     if (!directed) {
         if (edgeExists(to, from)) {
-            for (auto& edge : adjacency[to]) {
-                if (edge.to == from) {
-                    edge.weight = weight;
-                }
-            }
+            for (auto& edge : adjacency[to]) if (edge.to == from) edge.weight = weight;
         } else {
             adjacency[to].push_back({from, weight});
         }
         sortNeighbors(adjacency[to]);
-        std::cout << "› Added reverse edge (Undirected): " << to << " → " << from << "\n";
     }
-
-    std::cout << "› Adjacency List:\n";
-    printAdjacencyList();
-    Visualizer::divider();
     return true;
 }
 
 bool Graph::removeEdge(const std::string& from, const std::string& to) {
-    Visualizer::debug("removeEdge reached");
-    Visualizer::header("REMOVE CONNECTION");
+    std::lock_guard<std::recursive_mutex> lock(mtx);
+    if (!hasNode(from) || !hasNode(to)) return false;
 
-    if (!hasNode(from) || !hasNode(to)) {
-        Visualizer::error("Both users must exist.");
-        Visualizer::divider();
-        return false;
-    }
-
-    auto removeForward = [&](const std::string& source, const std::string& target) {
-        auto& neighbors = adjacency[source];
+    auto removeForward = [&](const std::string& src, const std::string& tgt) {
+        auto& neighbors = adjacency[src];
         auto originalSize = neighbors.size();
-        neighbors.erase(
-            std::remove_if(neighbors.begin(), neighbors.end(),
-                [&](const Edge& edge) { return edge.to == target; }),
-            neighbors.end()
-        );
+        neighbors.erase(std::remove_if(neighbors.begin(), neighbors.end(),
+            [&](const Edge& edge) { return edge.to == tgt; }), neighbors.end());
         return originalSize != neighbors.size();
     };
 
     bool removed = removeForward(from, to);
-    if (!directed) {
-        removeForward(to, from);
-    }
-
-    if (!removed) {
-        Visualizer::warn("Connection not found.");
-        Visualizer::divider();
-        return false;
-    }
-
-    Visualizer::success("Removed connection: " + from + " -> " + to);
-    Visualizer::info("Adjacency List:");
-    printAdjacencyList();
-    Visualizer::divider();
-    return true;
+    if (!directed) removeForward(to, from);
+    return removed;
 }
 
-void Graph::printAdjacencyList() const {
-    Visualizer::debug("printAdjacencyList reached");
-    std::vector<std::string> users = getNodes();
-    for (const auto& user : users) {
-        std::cout << "  " << user << " -> [";
-        const auto& neighbors = adjacency.at(user);
-        for (std::size_t index = 0; index < neighbors.size(); ++index) {
-            std::cout << neighbors[index].to << "(" << neighbors[index].weight << ")";
-            if (index + 1 < neighbors.size()) {
-                std::cout << ", ";
-            }
-        }
-        std::cout << "]\n";
-    }
-    std::cout.flush();
-}
+BFSResult Graph::BFS(std::string start) {
+    std::lock_guard<std::recursive_mutex> lock(mtx);
+    BFSResult result;
+    if (!hasNode(start)) return result;
 
-void Graph::printAdjacencyMatrix() const {
-    Visualizer::debug("printAdjacencyMatrix reached");
-    Visualizer::header("ADJACENCY MATRIX");
-
-    std::vector<std::string> users = getNodes();
-    if (users.empty()) {
-        Visualizer::warn("Graph is empty.");
-        Visualizer::divider();
-        return;
-    }
-
-    std::cout << std::setw(10) << " ";
-    for (const auto& user : users) {
-        std::cout << std::setw(10) << user;
-    }
-    std::cout << "\n";
-
-    for (const auto& rowUser : users) {
-        std::cout << std::setw(10) << rowUser;
-        for (const auto& colUser : users) {
-            int value = 0;
-            for (const auto& edge : adjacency.at(rowUser)) {
-                if (edge.to == colUser) {
-                    value = edge.weight;
-                    break;
-                }
-            }
-            std::cout << std::setw(10) << value;
-        }
-        std::cout << "\n";
-    }
-
-    Visualizer::divider();
-}
-
-std::vector<std::string> Graph::bfs(const std::string& start) const {
-    Visualizer::debug("bfs reached");
-    Visualizer::header("BFS TRAVERSAL from " + start);
-
-    if (!hasNode(start)) {
-        Visualizer::error("Start node not found: " + start);
-        Visualizer::divider();
-        return {};
-    }
-
-    std::queue<std::string> queue;
+    std::queue<std::string> q;
     std::unordered_set<std::string> visited;
-    std::vector<std::string> order;
-
-    queue.push(start);
+    q.push(start);
     visited.insert(start);
+    int stepNum = 0;
 
-    while (!queue.empty()) {
-        std::queue<std::string> snapshot = queue;
-        std::vector<std::string> queueItems;
-        while (!snapshot.empty()) {
-            queueItems.push_back(snapshot.front());
-            snapshot.pop();
-        }
+    while (!q.empty()) {
+        BFSStep step;
+        step.node = q.front();
+        
+        std::queue<std::string> tempQ = q;
+        tempQ.pop(); // Show queue AFTER this node is processed
+        while (!tempQ.empty()) { step.queue.push_back(tempQ.front()); tempQ.pop(); }
+        result.steps.push_back(step);
 
-        std::string current = queue.front();
-        queue.pop();
-        order.push_back(current);
+        std::string curr = q.front();
+        q.pop();
+        result.order.push_back(curr);
 
-        std::cout << "› Queue: [" << Visualizer::join(queueItems, ", ") << "] | Visiting: " << current << "\n";
+        Visualizer::printBFSStep(++stepNum, curr, step.queue, result.order);
 
-        std::vector<Edge> neighbors = adjacency.at(current);
-        std::sort(neighbors.begin(), neighbors.end(), [](const Edge& left, const Edge& right) {
-            return left.to < right.to;
-        });
-
-        for (const auto& edge : neighbors) {
-            if (!visited.count(edge.to)) {
+        for (const auto& edge : adjacency.at(curr)) {
+            if (visited.find(edge.to) == visited.end()) {
                 visited.insert(edge.to);
-                queue.push(edge.to);
+                q.push(edge.to);
             }
         }
     }
-
-    std::cout << GREEN << "› BFS Order: " << Visualizer::join(order, " → ") << RESET << "\n";
-    Visualizer::divider();
-    return order;
+    Visualizer::printBFSComplete(result.order);
+    return result;
 }
 
-std::vector<std::string> Graph::dfs(const std::string& start) const {
-    Visualizer::debug("dfs reached");
-    Visualizer::header("DFS TRAVERSAL from " + start);
-
-    if (!hasNode(start)) {
-        Visualizer::error("Start node not found: " + start);
-        Visualizer::divider();
-        return {};
-    }
+DFSResult Graph::DFS(std::string start) {
+    std::lock_guard<std::recursive_mutex> lock(mtx);
+    DFSResult result;
+    if (!hasNode(start)) return result;
 
     std::vector<std::string> stack = {start};
     std::unordered_set<std::string> visited;
-    std::vector<std::string> order;
+    int stepNum = 0;
 
     while (!stack.empty()) {
-        std::string current = stack.back();
+        std::string curr = stack.back();
         stack.pop_back();
 
-        if (visited.count(current)) {
-            continue;
-        }
+        if (visited.find(curr) == visited.end()) {
+            visited.insert(curr);
+            result.order.push_back(curr);
 
-        visited.insert(current);
-        order.push_back(current);
+            DFSStep step;
+            step.node = curr;
+            step.stack = stack;
+            result.steps.push_back(step);
 
-        std::vector<Edge> neighbors = adjacency.at(current);
-        std::sort(neighbors.begin(), neighbors.end(), [](const Edge& left, const Edge& right) {
-            return left.to > right.to;
-        });
+            Visualizer::printDFSStep(++stepNum, curr, step.stack, result.order);
 
-        std::vector<std::string> neighborNames;
-        for (const auto& edge : neighbors) {
-            neighborNames.push_back(edge.to);
-            if (!visited.count(edge.to)) {
-                stack.push_back(edge.to);
-            }
-        }
-
-        std::cout << "› Stack top: " << current << " | Neighbors: "
-                  << (neighborNames.empty() ? "(none)" : Visualizer::join(neighborNames, ", "))
-                  << "\n";
-    }
-
-    std::cout << GREEN << "› DFS Order: " << Visualizer::join(order, " → ") << RESET << "\n";
-    Visualizer::divider();
-    return order;
-}
-
-void Graph::printDistanceTable(const std::unordered_map<std::string, int>& distances) const {
-    std::vector<std::string> users = getNodes();
-    std::cout << "› Distance Table:\n";
-    for (const auto& user : users) {
-        auto iterator = distances.find(user);
-        if (iterator == distances.end() || iterator->second >= INF) {
-            std::cout << "  " << user << " : INF\n";
-        } else {
-            std::cout << "  " << user << " : " << iterator->second << "\n";
-        }
-    }
-}
-
-std::vector<std::string> Graph::dijkstra(const std::string& start, const std::string& end) const {
-    Visualizer::debug("dijkstra reached");
-    Visualizer::header("DIJKSTRA: " + start + " → " + end);
-
-    if (!hasNode(start) || !hasNode(end)) {
-        Visualizer::error("Both start and end nodes must exist.");
-        Visualizer::divider();
-        return {};
-    }
-
-    std::unordered_map<std::string, int> distances;
-    std::unordered_map<std::string, std::string> previous;
-    std::set<std::pair<int, std::string>> minQueue;
-
-    for (const auto& user : getNodes()) {
-        distances[user] = INF;
-    }
-    distances[start] = 0;
-    minQueue.insert({0, start});
-
-    printDistanceTable(distances);
-
-    while (!minQueue.empty()) {
-        auto [currentDistance, current] = *minQueue.begin();
-        minQueue.erase(minQueue.begin());
-
-        if (currentDistance > distances[current]) {
-            continue;
-        }
-
-        for (const auto& edge : adjacency.at(current)) {
-            int candidateDistance = distances[current] + edge.weight;
-            bool updated = candidateDistance < distances[edge.to];
-
-            std::cout << "› Relaxing " << current << "→" << edge.to
-                      << " | dist[" << edge.to << "] = "
-                      << candidateDistance
-                      << (updated ? " ✓ UPDATED" : " ✗ kept") << "\n";
-
-            if (updated) {
-                auto existing = minQueue.find({distances[edge.to], edge.to});
-                if (existing != minQueue.end()) {
-                    minQueue.erase(existing);
+            const auto& neighbors = adjacency.at(curr);
+            for (auto it = neighbors.rbegin(); it != neighbors.rend(); ++it) {
+                if (visited.find(it->to) == visited.end()) {
+                    stack.push_back(it->to);
                 }
-                distances[edge.to] = candidateDistance;
-                previous[edge.to] = current;
-                minQueue.insert({candidateDistance, edge.to});
-                printDistanceTable(distances);
             }
         }
     }
-
-    printDistanceTable(distances);
-
-    if (distances[end] >= INF) {
-        Visualizer::warn("No path found.");
-        Visualizer::divider();
-        return {};
-    }
-
-    std::vector<std::string> path;
-    for (std::string current = end; !current.empty();) {
-        path.push_back(current);
-        auto iterator = previous.find(current);
-        if (current == start) {
-            break;
-        }
-        if (iterator == previous.end()) {
-            break;
-        }
-        current = iterator->second;
-    }
-    std::reverse(path.begin(), path.end());
-
-    Visualizer::success("Shortest path: " + Visualizer::join(path, " → "));
-    Visualizer::info("Total cost: " + std::to_string(distances[end]));
-    Visualizer::divider();
-    return path;
+    Visualizer::printDFSComplete(result.order);
+    return result;
 }
 
-std::vector<MSTEdge> Graph::prim(const std::string& start) const {
-    Visualizer::debug("prim reached");
-    Visualizer::header("PRIM'S MST from " + start);
+DijkstraResult Graph::Dijkstra(std::string start, std::string end) {
+    std::lock_guard<std::recursive_mutex> lock(mtx);
+    DijkstraResult result;
+    if (!hasNode(start) || !hasNode(end)) return result;
 
-    if (directed) {
-        Visualizer::error("Prim's MST requires undirected mode.");
-        Visualizer::divider();
-        return {};
-    }
+    std::unordered_map<std::string, int> dists;
+    std::unordered_map<std::string, std::string> parent;
+    for (const auto& node : adjacency) dists[node.first] = INF;
+    dists[start] = 0;
 
-    if (!hasNode(start)) {
-        Visualizer::error("Start node not found: " + start);
-        Visualizer::divider();
-        return {};
-    }
+    using pii = std::pair<int, std::string>;
+    std::priority_queue<pii, std::vector<pii>, std::greater<pii>> pq;
+    pq.push({0, start});
 
-    struct Candidate {
-        int weight;
-        std::string from;
-        std::string to;
-    };
+    int stepNum = 0;
+    while (!pq.empty()) {
+        std::string u = pq.top().second;
+        int d = pq.top().first;
+        pq.pop();
 
-    auto comparator = [](const Candidate& left, const Candidate& right) {
-        return left.weight > right.weight;
-    };
+        if (d > dists[u]) continue;
 
-    std::priority_queue<Candidate, std::vector<Candidate>, decltype(comparator)> minHeap(comparator);
-    std::unordered_set<std::string> visited = {start};
-    std::vector<MSTEdge> mst;
-    int totalWeight = 0;
-
-    for (const auto& edge : adjacency.at(start)) {
-        minHeap.push({edge.weight, start, edge.to});
-    }
-
-    while (!minHeap.empty() && visited.size() < adjacency.size()) {
-        Candidate best = minHeap.top();
-        minHeap.pop();
-
-        if (visited.count(best.to)) {
-            continue;
-        }
-
-        visited.insert(best.to);
-        mst.push_back({best.from, best.to, best.weight});
-        totalWeight += best.weight;
-
-        std::cout << "› Added: " << best.from << " — " << best.to
-                  << " (weight: " << best.weight << ") | Total so far: " << totalWeight << "\n";
-
-        for (const auto& edge : adjacency.at(best.to)) {
-            if (!visited.count(edge.to)) {
-                minHeap.push({edge.weight, best.to, edge.to});
+        for (const auto& edge : adjacency.at(u)) {
+            bool updated = false;
+            if (dists[u] + edge.weight < dists[edge.to]) {
+                dists[edge.to] = dists[u] + edge.weight;
+                parent[edge.to] = u;
+                pq.push({dists[edge.to], edge.to});
+                updated = true;
             }
+            DijkstraStep step = {u, edge.to, dists[edge.to], updated};
+            result.steps.push_back(step);
+            Visualizer::printDijkstraStep(++stepNum, u, edge.to, dists[edge.to], updated);
         }
     }
 
-    if (visited.size() != adjacency.size()) {
-        Visualizer::warn("Graph is disconnected. MST is partial.");
+    if (dists[end] != INF) {
+        result.cost = dists[end];
+        for (std::string v = end; !v.empty(); v = parent[v]) {
+            result.path.push_back(v);
+            if (v == start) break;
+        }
+        std::reverse(result.path.begin(), result.path.end());
+    } else {
+        result.cost = -1;
     }
-
-    std::cout << GREEN << "› MST Complete. Total Weight: " << totalWeight << RESET << "\n";
-    Visualizer::divider();
-    return mst;
+    
+    Visualizer::printDijkstraComplete(result.path, result.cost);
+    return result;
 }
 
-void Graph::clear() {
-    Visualizer::debug("clear reached");
+PrimsResult Graph::Prims(std::string start) {
+    std::lock_guard<std::recursive_mutex> lock(mtx);
+    PrimsResult result;
+    result.totalCost = 0;
+    if (!hasNode(start)) return result;
+
+    std::unordered_set<std::string> inMST = {start};
+    using pii = std::pair<int, std::pair<std::string, std::string>>;
+    std::priority_queue<pii, std::vector<pii>, std::greater<pii>> pq;
+
+    for (const auto& edge : adjacency.at(start)) pq.push({edge.weight, {start, edge.to}});
+
+    int stepNum = 0;
+    while (!pq.empty() && inMST.size() < adjacency.size()) {
+        auto top = pq.top(); pq.pop();
+        int w = top.first;
+        std::string u = top.second.first;
+        std::string v = top.second.second;
+
+        if (inMST.count(v)) continue;
+
+        inMST.insert(v);
+        result.totalCost += w;
+        result.edges.push_back({u, v, w});
+        Visualizer::printMSTEdge(++stepNum, u, v, w, result.totalCost);
+
+        for (const auto& edge : adjacency.at(v)) {
+            if (!inMST.count(edge.to)) pq.push({edge.weight, {v, edge.to}});
+        }
+    }
+    Visualizer::printMSTComplete(result.totalCost);
+    return result;
+}
+
+std::string Graph::toJson() {
+    std::lock_guard<std::recursive_mutex> lock(mtx);
+    std::stringstream ss;
+    ss << "{\"nodes\":[";
+    bool first = true;
+    for (auto const& [id, _] : adjacency) {
+        if (!first) ss << ",";
+        ss << "{\"id\":\"" << id << "\"}";
+        first = false;
+    }
+    ss << "],\"links\":[";
+    first = true;
+    for (auto const& [u, neighbors] : adjacency) {
+        for (auto const& edge : neighbors) {
+            if (!directed && u > edge.to) continue;
+            if (!first) ss << ",";
+            ss << "{\"source\":\"" << u << "\",\"target\":\"" << edge.to << "\",\"weight\":" << edge.weight << "}";
+            first = false;
+        }
+    }
+    ss << "],\"directed\":" << (directed ? "true" : "false") << "}";
+    return ss.str();
+}
+
+void Graph::loadSample() {
+    std::lock_guard<std::recursive_mutex> lock(mtx);
+    clearAll();
+    std::vector<std::string> users = {"Aarav", "Ishani", "Rohan", "Priya", "Arjun", "Sneha", "Vihaan", "Ananya"};
+    for (const auto& u : users) addNode(u);
+    addEdge("Aarav", "Ishani", 2); addEdge("Aarav", "Rohan", 4);
+    addEdge("Ishani", "Priya", 3); addEdge("Rohan", "Priya", 1);
+    addEdge("Rohan", "Arjun", 5); addEdge("Priya", "Sneha", 2);
+    addEdge("Arjun", "Vihaan", 3); addEdge("Sneha", "Ananya", 4);
+}
+
+void Graph::clearAll() {
+    std::lock_guard<std::recursive_mutex> lock(mtx);
     adjacency.clear();
 }
 
+int Graph::nodeCount() const {
+    std::lock_guard<std::recursive_mutex> lock(mtx);
+    return (int)adjacency.size();
+}
+
 std::vector<std::string> Graph::getNodes() const {
-    std::vector<std::string> users;
-    users.reserve(adjacency.size());
-    for (const auto& [user, _] : adjacency) {
-        users.push_back(user);
-    }
-    std::sort(users.begin(), users.end());
-    return users;
+    std::lock_guard<std::recursive_mutex> lock(mtx);
+    std::vector<std::string> nodes;
+    for (const auto& [id, _] : adjacency) nodes.push_back(id);
+    std::sort(nodes.begin(), nodes.end());
+    return nodes;
 }
 
-const std::unordered_map<std::string, std::vector<Edge>>& Graph::getAdjacency() const {
-    return adjacency;
-}
-
-std::size_t Graph::nodeCount() const {
-    return adjacency.size();
-}
-
-void Graph::loadSampleNetwork() {
-    Visualizer::debug("loadSampleNetwork reached");
-    Visualizer::header("LOAD SAMPLE NETWORK");
-
-    clear();
-
-    const std::vector<std::string> sampleUsers = {
-        "Aarav", "Ishani", "Rohan", "Priya", "Arjun", "Sneha", "Vihaan", "Ananya"
-    };
-
-    for (const auto& user : sampleUsers) {
-        adjacency[user] = {};
-        Visualizer::info("Loaded user: " + user);
+void Graph::printAdjacencyList() const {
+    for (const auto& [u, neighbors] : adjacency) {
+        std::cout << "  " << u << " -> ";
+        for (const auto& e : neighbors) std::cout << e.to << "(" << e.weight << ") ";
+        std::cout << "\n";
     }
-
-    const std::vector<MSTEdge> sampleEdges = {
-        {"Aarav", "Ishani", 3},
-        {"Aarav", "Rohan", 1},
-        {"Ishani", "Priya", 4},
-        {"Ishani", "Arjun", 2},
-        {"Rohan", "Sneha", 5},
-        {"Priya", "Vihaan", 1},
-        {"Arjun", "Ananya", 3},
-        {"Sneha", "Ananya", 2},
-        {"Vihaan", "Ananya", 6}
-    };
-
-    for (const auto& edge : sampleEdges) {
-        if (!edgeExists(edge.from, edge.to)) {
-            adjacency[edge.from].push_back({edge.to, edge.weight});
-        }
-        if (!directed && !edgeExists(edge.to, edge.from)) {
-            adjacency[edge.to].push_back({edge.from, edge.weight});
-        }
-        sortNeighbors(adjacency[edge.from]);
-        if (!directed) {
-            sortNeighbors(adjacency[edge.to]);
-        }
-        Visualizer::info("Loaded edge: " + edge.from + " -> " + edge.to + " (weight " + std::to_string(edge.weight) + ")");
-    }
-
-    Visualizer::info("Adjacency List:");
-    printAdjacencyList();
-    Visualizer::divider();
 }

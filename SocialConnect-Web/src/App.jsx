@@ -17,6 +17,8 @@ const App = () => {
   const [edgeDest, setEdgeDest] = useState('');
   const [weight, setWeight] = useState(1);
   const [mode, setMode] = useState('UNDIRECTED');
+  const [activeNode, setActiveNode] = useState(null);
+  const [activeLinks, setActiveLinks] = useState([]);
   const d3Container = useRef(null);
   const terminalRef = useRef(null);
 
@@ -24,7 +26,29 @@ const App = () => {
     graph.onLog = (msg, type) => {
       setLogs(prev => [...prev.slice(-100), { msg, type, id: `${Date.now()}-${Math.random()}` }]);
     };
-    loadSamples();
+    graph.onUpdate = () => {
+      triggerUpdate();
+    };
+
+    // Override bridge event handler to trigger UI lights
+    const originalHandler = graph.handleEvent.bind(graph);
+    graph.handleEvent = (e) => {
+      originalHandler(e);
+      if (e.type === 'BFS_STEP' || e.type === 'DFS_STEP') {
+        setActiveNode(e.node);
+        setTimeout(() => setActiveNode(null), 800);
+      }
+      if (e.type === 'DIJKSTRA_RELAX' && e.updated) {
+        setActiveLinks(prev => [...prev, {u: e.u, v: e.v}]);
+        setTimeout(() => setActiveLinks(prev => prev.filter(l => l.u !== e.u || l.v !== e.v)), 1000);
+      }
+      if (e.type === 'MST_EDGE') {
+        setActiveLinks(prev => [...prev, {u: e.u, v: e.v}]);
+      }
+      if (e.type === 'CLEAR_ALL' || e.type.endsWith('_COMPLETE')) {
+        if (e.type === 'CLEAR_ALL') setActiveLinks([]);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -43,10 +67,7 @@ const App = () => {
   const triggerUpdate = () => setVersion(v => v + 1);
 
   const loadSamples = () => {
-    const samples = [['Aarav', 'Ishani', 3], ['Aarav', 'Rohan', 1], ['Ishani', 'Priya', 4], ['Ishani', 'Arjun', 2], ['Rohan', 'Sneha', 5], ['Priya', 'Vihaan', 1], ['Arjun', 'Ananya', 3], ['Sneha', 'Ananya', 2], ['Vihaan', 'Ananya', 6]];
-    ['Aarav', 'Ishani', 'Rohan', 'Priya', 'Arjun', 'Sneha', 'Vihaan', 'Ananya'].forEach(n => graph.addNode(n));
-    samples.forEach(([u, v, w]) => graph.addEdge(u, v, w));
-    triggerUpdate();
+    graph.apiCommand('load_sample', {});
   };
 
   const renderGraph = () => {
@@ -99,9 +120,14 @@ const App = () => {
         }));
 
     nodeGroup.append("circle")
-      .attr("class", "node")
+      .attr("class", d => `node ${activeNode === d.id ? 'node-active' : ''}`)
       .attr("r", 8)
-      .attr("fill", "#38bdf8");
+      .attr("fill", d => activeNode === d.id ? "var(--accent)" : "#38bdf8");
+
+    link.attr("class", d => {
+      const isActive = activeLinks.some(al => (al.u === d.source.id && al.v === d.target.id) || (mode === 'UNDIRECTED' && al.u === d.target.id && al.v === d.source.id));
+      return `link ${isActive ? 'link-active' : ''}`;
+    });
 
     nodeGroup.append("text")
       .attr("class", "label")

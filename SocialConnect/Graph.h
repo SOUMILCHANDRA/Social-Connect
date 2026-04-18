@@ -5,16 +5,55 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <mutex>
+
+class HttpServer;
 
 struct Edge {
     std::string to;
     int weight;
 };
 
+struct BFSStep {
+    std::string node;
+    std::vector<std::string> queue;
+};
+
+struct DFSStep {
+    std::string node;
+    std::vector<std::string> stack;
+};
+
+struct DijkstraStep {
+    std::string u, v;
+    int newDist;
+    bool updated;
+};
+
 struct MSTEdge {
-    std::string from;
-    std::string to;
+    std::string u, v;
     int weight;
+};
+
+struct BFSResult {
+    std::vector<std::string> order;
+    std::vector<BFSStep> steps;
+};
+
+struct DFSResult {
+    std::vector<std::string> order;
+    std::vector<DFSStep> steps;
+};
+
+struct DijkstraResult {
+    std::vector<std::string> path;
+    int cost;
+    std::vector<DijkstraStep> steps;
+};
+
+struct PrimsResult {
+    int totalCost;
+    std::vector<MSTEdge> edges;
 };
 
 class Graph {
@@ -29,23 +68,26 @@ public:
     bool addEdge(const std::string& from, const std::string& to, int weight = 1);
     bool removeEdge(const std::string& from, const std::string& to);
 
-    std::vector<std::string> bfs(const std::string& start) const;
-    std::vector<std::string> dfs(const std::string& start) const;
-    std::vector<std::string> dijkstra(const std::string& start, const std::string& end) const;
-    std::vector<MSTEdge> prim(const std::string& start) const;
+    BFSResult BFS(std::string start);
+    DFSResult DFS(std::string start);
+    DijkstraResult Dijkstra(std::string start, std::string end);
+    PrimsResult Prims(std::string start);
 
     void printAdjacencyList() const;
     void printAdjacencyMatrix() const;
-    void loadSampleNetwork();
-    void clear();
+    void loadSample();
+    void clearAll();
 
     std::vector<std::string> getNodes() const;
-    const std::unordered_map<std::string, std::vector<Edge>>& getAdjacency() const;
-    std::size_t nodeCount() const;
+    std::string toJson();
+    int nodeCount() const;
+
+    std::recursive_mutex& getMutex() { return mtx; }
 
 private:
     bool directed;
     std::unordered_map<std::string, std::vector<Edge>> adjacency;
+    mutable std::recursive_mutex mtx;
 
     bool hasNode(const std::string& name) const;
     bool edgeExists(const std::string& from, const std::string& to) const;

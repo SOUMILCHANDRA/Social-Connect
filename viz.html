@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SocialConnect | Academic API Edition</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        :root { --bg: #0d1117; --panel: #161b22; --accent: #58a6ff; --text: #c9d1d9; --border: #30363d; --success: #3fb950; --error: #f85149; }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; display: grid; grid-template-columns: 320px 1fr 320px; height: 100vh; overflow: hidden; }
+        .sidebar, .terminal { background: var(--panel); border-right: 1px solid var(--border); padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        .terminal { border-right: none; border-left: 1px solid var(--border); font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 12px; }
+        h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--accent); margin: 0 0 10px 0; border-bottom: 1px solid var(--border); padding-bottom: 5px; }
+        .control-group { background: #0d1117; border: 1px solid var(--border); padding: 12px; border-radius: 6px; }
+        input, button, select { width: 100%; padding: 8px; margin-bottom: 8px; border-radius: 4px; border: 1px solid var(--border); background: #010409; color: var(--text); font-size: 12px; box-sizing: border-box; }
+        button { background: #238636; color: white; font-weight: 600; cursor: pointer; border: none; transition: 0.2s; }
+        button:hover { background: #2ea043; }
+        button.secondary { background: #21262d; border: 1px solid var(--border); }
+        button.secondary:hover { background: #30363d; }
+        button.danger { background: #da3633; }
+        button.danger:hover { background: #f85149; }
+        .log-item { margin-bottom: 8px; line-height: 1.4; border-left: 2px solid var(--border); padding-left: 8px; font-size: 11px; }
+        .log-type { font-weight: bold; color: var(--accent); margin-right: 5px; }
+        #viz-container { position: relative; background: #010409; }
+        .status-badge { position: absolute; top: 15px; right: 20px; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; background: #21262d; border: 1px solid var(--border); }
+        .node circle { transition: r 0.3s, fill 0.3s, stroke 0.3s; }
+        .link { stroke: #30363d; stroke-opacity: 0.4; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>Network Management</h2>
+        <div class="control-group">
+            <input type="text" id="node-name" placeholder="User Name">
+            <button onclick="addNode()">Register User</button>
+            <button class="secondary danger" onclick="removeNode()">Evict User</button>
+        </div>
+        <div class="control-group">
+            <input type="text" id="edge-from" placeholder="From User">
+            <input type="text" id="edge-to" placeholder="To User">
+            <input type="number" id="edge-weight" placeholder="Weight" value="1">
+            <button onclick="addEdge()">Connect Users</button>
+            <button class="secondary danger" onclick="removeEdge()">Disconnect Users</button>
+        </div>
+        <h2>Computational Algorithms</h2>
+        <div class="control-group">
+            <input type="text" id="algo-start" placeholder="Starting Node">
+            <input type="text" id="algo-end" placeholder="Target Node (Dijkstra)">
+            <select id="speed-select">
+                <option value="800">Slow (800ms)</option>
+                <option value="400" selected>Normal (400ms)</option>
+                <option value="100">Fast (100ms)</option>
+                <option value="20">Turbo (20ms)</option>
+            </select>
+            <button class="secondary" onclick="runBFS()" style="color:#58a6ff">Execute BFS</button>
+            <button class="secondary" onclick="runDFS()" style="color:#d2a8ff">Execute DFS</button>
+            <button class="secondary" onclick="runDijkstra()" style="color:#ffa657">Execute Dijkstra</button>
+            <button class="secondary" onclick="runPrims()" style="color:#7ee787">Execute Prim's MST</button>
+        </div>
+        <div style="margin-top:auto">
+            <button class="secondary" onclick="loadSample()">Reset to Sample</button>
+            <button class="secondary danger" onclick="clearAll()">Purge Graph</button>
+        </div>
+    </div>
+
+    <div id="viz-container">
+        <div id="bridge-status" class="status-badge" style="color:var(--error)">BRIDGE: OFFLINE</div>
+    </div>
+
+    <div class="terminal">
+        <h2>Computational Logs</h2>
+        <div id="logs"></div>
+    </div>
+
+    <script>
+        const BASE = window.location.origin;
+        let nodes = [], links = [];
+        let isRunning = false;
+
+        const svg = d3.select("#viz-container").append("svg").attr("width", "100%").attr("height", "100%");
+        const g = svg.append("g");
+        const simulation = d3.forceSimulation()
+            .force("link", d3.forceLink().id(d => d.id).distance(120))
+            .force("charge", d3.forceManyBody().strength(-300))
+            .force("center", d3.forceCenter(window.innerWidth/2 - 320, window.innerHeight/2));
+
+        async function api(route, params = {}) {
+            try {
+                const res = await fetch(BASE + route, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(params)
+                });
+                return await res.json();
+            } catch (e) {
+                console.error("API Failure:", e);
+                return { error: true };
+            }
+        }
+
+        async function loadState() {
+            try {
+                const data = await fetch(BASE + '/state').then(r => r.json());
+                render(data);
+                document.getElementById('bridge-status').innerText = 'BRIDGE: STABLE';
+                document.getElementById('bridge-status').style.color = 'var(--success)';
+            } catch (e) {
+                document.getElementById('bridge-status').innerText = 'BRIDGE: OFFLINE';
+                document.getElementById('bridge-status').style.color = 'var(--error)';
+            }
+        }
+
+        function render(data) {
+            if (!data.nodes) return;
+            nodes = data.nodes;
+            links = data.links;
+
+            const l = g.selectAll(".link").data(links, d => d.source + "-" + d.target);
+            l.exit().remove();
+            const lEnter = l.enter().append("line").attr("class", "link").attr("stroke-width", 2);
+
+            const n = g.selectAll(".node").data(nodes, d => d.id);
+            n.exit().remove();
+            const nEnter = n.enter().append("g").attr("class", "node")
+                .call(d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended));
+
+            nEnter.append("circle").attr("r", 15).attr("fill", "#161b22").attr("stroke", "#30363d").attr("stroke-width", 2);
+            nEnter.append("text").text(d => d.id).attr("fill", "#8b949e").attr("text-anchor", "middle").attr("dy", ".35em").attr("font-size", "10px");
+
+            simulation.nodes(nodes);
+            simulation.force("link").links(links);
+            simulation.alpha(1).restart();
+
+            simulation.on("tick", () => {
+                g.selectAll(".link").attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+                g.selectAll(".node").attr("transform", d => `translate(${d.x},${d.y})`);
+            });
+        }
+
+        function dragstarted(e, d) { if (!e.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; }
+        function dragged(e, d) { d.fx = e.x; d.fy = e.y; }
+        function dragended(e, d) { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }
+
+        function log(type, msg, color = 'var(--accent)') {
+            const div = document.createElement('div');
+            div.className = 'log-item';
+            div.innerHTML = `<span class="log-type" style="color:${color}">${type}</span> ${msg}`;
+            const container = document.getElementById('logs');
+            container.insertBefore(div, container.firstChild);
+        }
+
+        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+        function clearHists() { 
+            g.selectAll("circle").attr("fill", "#161b22").attr("stroke", "#30363d").attr("r", 15).attr("stroke-width", 2); 
+            g.selectAll(".link").attr("stroke", "#30363d").attr("stroke-width", 2);
+        }
+
+        async function runBFS() {
+            if(isRunning) return;
+            const s = document.getElementById('algo-start').value;
+            if(!s) return;
+            isRunning = true;
+            log('BFS', `Starting traversal from ${s}...`);
+            const data = await api('/bfs', {start: s});
+            if(!data.steps || !data.steps.length) { isRunning = false; return; }
+            
+            const delay = parseInt(document.getElementById('speed-select').value);
+            clearHists();
+            for(let i=0; i<data.steps.length; i++) {
+                const step = data.steps[i];
+                await sleep(delay);
+                g.selectAll("circle").filter(d => d.id === step.node).attr("fill", "#1f6feb").attr("r", 20);
+                log('VISITED', step.node, '#58a6ff');
+            }
+            log('DONE', 'Order: ' + data.order.join(' → '), 'var(--success)');
+            isRunning = false;
+        }
+
+        async function runDFS() {
+            if(isRunning) return;
+            const s = document.getElementById('algo-start').value;
+            if(!s) return;
+            isRunning = true;
+            log('DFS', `Starting depth-first search from ${s}...`);
+            const data = await api('/dfs', {start: s});
+            if(!data.steps || !data.steps.length) { isRunning = false; return; }
+
+            const delay = parseInt(document.getElementById('speed-select').value);
+            clearHists();
+            for(let i=0; i<data.steps.length; i++) {
+                const step = data.steps[i];
+                await sleep(delay);
+                g.selectAll("circle").filter(d => d.id === step.node).attr("fill", "#bc8cff").attr("r", 20);
+                log('VISITED', step.node, '#bc8cff');
+            }
+            log('DONE', 'Order: ' + data.order.join(' → '), 'var(--success)');
+            isRunning = false;
+        }
+
+        async function runDijkstra() {
+            if(isRunning) return;
+            const s = document.getElementById('algo-start').value;
+            const e = document.getElementById('algo-end').value;
+            if(!s || !e) return;
+            isRunning = true;
+            log('DIJKSTRA', `Computing shortest path ${s} to ${e}...`);
+            const data = await api('/dijkstra', {start: s, end: e});
+            if(!data.steps) { isRunning = false; return; }
+
+            const delay = parseInt(document.getElementById('speed-select').value);
+            clearHists();
+            for(let step of data.steps) {
+                await sleep(delay/2);
+                if(step.updated) {
+                    g.selectAll("circle").filter(d => d.id === step.v).attr("stroke", "#ffa657").attr("stroke-width", 4);
+                    log('RELAX', `${step.u} ➔ ${step.v} (dist: ${step.newDist})`, '#ffa657');
+                }
+            }
+            if(data.path && data.path.length) {
+                for(let i=0; i<data.path.length-1; i++) {
+                    const u = data.path[i], v = data.path[i+1];
+                    g.selectAll("circle").filter(d => d.id === u || d.id === v).attr("fill", "#ffa657");
+                    g.selectAll(".link").filter(d => (d.source.id === u && d.target.id === v) || (d.source.id === v && d.target.id === u)).attr("stroke", "#ffa657").attr("stroke-width", 5);
+                }
+                log('RESULT', `Shortest Cost: ${data.cost}`, '#ffa657');
+            }
+            isRunning = false;
+        }
+
+        async function runPrims() {
+            if(isRunning) return;
+            const s = document.getElementById('algo-start').value || (nodes[0] ? nodes[0].id : null);
+            if(!s) return;
+            isRunning = true;
+            log('PRIM', `Constructing Minimum Spanning Tree from ${s}...`);
+            const data = await api('/prims', {start: s});
+            if(!data.edges) { isRunning = false; return; }
+
+            const delay = parseInt(document.getElementById('speed-select').value);
+            clearHists();
+            for(let edge of data.edges) {
+                await sleep(delay);
+                g.selectAll("circle").filter(d => d.id === edge.u || d.id === edge.v).attr("fill", "#3fb950");
+                g.selectAll(".link").filter(d => (d.source.id === edge.u && d.target.id === edge.v) || (d.source.id === v && d.target.id === u)).attr("stroke", "#3fb950").attr("stroke-width", 5);
+                log('MST', `${edge.u} ⸺ ${edge.v} (w: ${edge.weight})`, '#3fb950');
+            }
+            log('RESULT', `MST Weight: ${data.totalCost}`, '#3fb950');
+            isRunning = false;
+        }
+
+        async function addNode() { const n = document.getElementById('node-name').value; await api('/add_node', {name:n}); loadState(); }
+        async function removeNode() { const n = document.getElementById('node-name').value; await api('/remove_node', {name:n}); loadState(); }
+        async function addEdge() { const f = document.getElementById('edge-from').value, t = document.getElementById('edge-to').value, w = parseInt(document.getElementById('edge-weight').value); await api('/add_edge', {from:f, to:t, weight:w}); loadState(); }
+        async function removeEdge() { const f = document.getElementById('edge-from').value, t = document.getElementById('edge-to').value; await api('/remove_edge', {from:f, to:t}); loadState(); }
+        async function loadSample() { await api('/load_sample'); loadState(); }
+        async function clearAll() { await api('/clear_all'); loadState(); }
+
+        window.onload = loadState;
+        setInterval(() => { if(!isRunning) loadState(); }, 2000);
+    </script>
+</body>
+</html>
