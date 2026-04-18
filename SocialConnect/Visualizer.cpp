@@ -402,17 +402,17 @@ void Visualizer::generateHTML(const Graph& graph, const std::string& filename) {
       .force("y", d3.forceY().strength(0.05))
       .force("collision", d3.forceCollide(35));
 
-    function width() { return graphPanel.clientWidth || window.innerWidth * 0.6; }
-    function height() { return graphPanel.clientHeight || window.innerHeight; }
+    const width = () => 1000;
+    const height = () => 800;
     function normalizeLinkEndpoints(link) { return { source: typeof link.source === "object" ? link.source.id : link.source, target: typeof link.target === "object" ? link.target.id : link.target }; }
     function edgeKey(a, b) { return directed ? `${a}->${b}` : [a, b].sort().join("<->"); }
     function syncViewport() {
-      const w = width(), h = height();
+      const w = 1000, h = 800;
       svg.attr("viewBox", `0 0 ${w} ${h}`);
       backgroundRect.attr("width", w).attr("height", h);
       simulation.force("center", d3.forceCenter(w / 2, h / 2));
-      simulation.force("x", d3.forceX(w / 2).strength(0.05));
-      simulation.force("y", d3.forceY(h / 2).strength(0.05));
+      simulation.force("x", d3.forceX(w / 2).strength(0.08));
+      simulation.force("y", d3.forceY(h / 2).strength(0.08));
     }
     function updateHeader() {
       headerMeta.textContent = `NODES: ${nodes.length} | MODE: ${directed ? "DIRECTED" : "UNDIRECTED"}`;
@@ -734,19 +734,19 @@ void Visualizer::generateHTML(const Graph& graph, const std::string& filename) {
       nodes = [];
       links = [];
       clearHighlights(false);
-      ["Alice", "Bob", "Charlie", "Dave", "Eve", "Frank", "Grace", "Henry"].forEach(name => {
-        nodes.push({ id: name, x: width() / 2 + (Math.random() - 0.5) * 60, y: height() / 2 + (Math.random() - 0.5) * 60 });
+      ["Aarav", "Ishani", "Rohan", "Priya", "Arjun", "Sneha", "Vihaan", "Ananya"].forEach(name => {
+        nodes.push({ id: name, x: 500 + (Math.random() - 0.5) * 100, y: 400 + (Math.random() - 0.5) * 100 });
         logTerm("ADD NODE", `Adding user: ${name}`, `Current graph size: ${nodes.length} node(s)`);
       });
-      [["Alice", "Bob", 3], ["Alice", "Charlie", 1], ["Bob", "Dave", 4], ["Bob", "Eve", 2], ["Charlie", "Frank", 5], ["Dave", "Grace", 1], ["Eve", "Henry", 3], ["Frank", "Henry", 2], ["Grace", "Henry", 6]].forEach(([source, target, weight]) => {
+      [["Aarav", "Ishani", 3], ["Aarav", "Rohan", 1], ["Ishani", "Priya", 4], ["Ishani", "Arjun", 2], ["Rohan", "Sneha", 5], ["Priya", "Vihaan", 1], ["Arjun", "Ananya", 3], ["Sneha", "Ananya", 2], ["Vihaan", "Ananya", 6]].forEach(([source, target, weight]) => {
         links.push({ source, target, weight });
         logTerm("ADD CONNECTION", `Added edge: ${source} → ${target} (Weight: ${weight})`, directed ? "Graph mode: Directed" : `Added reverse edge logically (Undirected): ${target} → ${source}`);
       });
       updateGraph();
-      setSelection("Alice");
-      document.getElementById("startInput").value = "Alice";
-      document.getElementById("endInput").value = "Henry";
-      logTerm("LOAD SAMPLE NETWORK", "Loaded users: Alice, Bob, Charlie, Dave, Eve, Frank, Grace, Henry", "Loaded 9 weighted connections.", formatAdjacencySnapshot());
+      setSelection("Aarav");
+      document.getElementById("startInput").value = "Aarav";
+      document.getElementById("endInput").value = "Ananya";
+      logTerm("LOAD SAMPLE NETWORK", "Loaded Indian Region dataset", "Network ready for analysis.", formatAdjacencySnapshot());
     }
     function toggleMode() {
       directed = !directed;

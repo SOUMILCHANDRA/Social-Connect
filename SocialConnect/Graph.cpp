@@ -534,7 +534,7 @@ void Graph::loadSampleNetwork() {
     clear();
 
     const std::vector<std::string> sampleUsers = {
-        "Alice", "Bob", "Charlie", "Dave", "Eve", "Frank", "Grace", "Henry"
+        "Aarav", "Ishani", "Rohan", "Priya", "Arjun", "Sneha", "Vihaan", "Ananya"
     };
 
     for (const auto& user : sampleUsers) {
@@ -543,15 +543,15 @@ void Graph::loadSampleNetwork() {
     }
 
     const std::vector<MSTEdge> sampleEdges = {
-        {"Alice", "Bob", 3},
-        {"Alice", "Charlie", 1},
-        {"Bob", "Dave", 4},
-        {"Bob", "Eve", 2},
-        {"Charlie", "Frank", 5},
-        {"Dave", "Grace", 1},
-        {"Eve", "Henry", 3},
-        {"Frank", "Henry", 2},
-        {"Grace", "Henry", 6}
+        {"Aarav", "Ishani", 3},
+        {"Aarav", "Rohan", 1},
+        {"Ishani", "Priya", 4},
+        {"Ishani", "Arjun", 2},
+        {"Rohan", "Sneha", 5},
+        {"Priya", "Vihaan", 1},
+        {"Arjun", "Ananya", 3},
+        {"Sneha", "Ananya", 2},
+        {"Vihaan", "Ananya", 6}
     };
 
     for (const auto& edge : sampleEdges) {
