@@ -8,6 +8,18 @@
  * @brief Visualizer class handles all output to the terminal and external files.
  * Uses ANSI color codes for rich terminal experience.
  */
+#define CYAN    "\033[36m"
+#define GREEN   "\033[32m"
+#define YELLOW  "\033[33m"
+#define RED     "\033[31m"
+#define BOLD    "\033[1m"
+#define RESET   "\033[0m"
+#define LINE    "═══════════════════════════"
+
+/**
+ * @brief Visualizer class handles all output to the terminal and external files.
+ * Uses ANSI color codes for rich terminal experience.
+ */
 class Visualizer {
 public:
     // Terminal Colors (ANSI)
