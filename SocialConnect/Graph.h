@@ -1,58 +1,56 @@
-#ifndef GRAPH_H
-#define GRAPH_H
+#ifndef SOCIALCONNECT_GRAPH_H
+#define SOCIALCONNECT_GRAPH_H
 
-#include <iostream>
-#include <vector>
+#include <cstddef>
 #include <string>
 #include <unordered_map>
-#include <queue>
-#include <stack>
-#include <set>
-#include <algorithm>
-#include <limits>
-#include <iomanip>
+#include <vector>
 
-/**
- * @brief Represents the types of connections in the social network.
- */
-enum class GraphMode {
-    UNDIRECTED, // Friendship (Mutual)
-    DIRECTED    // Follow (One-way)
+struct Edge {
+    std::string to;
+    int weight;
 };
 
-/**
- * @brief Graph class to manage users (nodes) and their connections (edges).
- * Uses STL containers: unordered_map for Adjacency List, vector for Adjacency Matrix.
- */
+struct MSTEdge {
+    std::string from;
+    std::string to;
+    int weight;
+};
+
 class Graph {
-private:
-    // Adjacency List: key = user name, value = list of pairs (neighbor name, weight)
-    std::unordered_map<std::string, std::vector<std::pair<std::string, int>>> adjList;
-    GraphMode mode;
-
 public:
-    Graph(GraphMode m = GraphMode::UNDIRECTED);
+    explicit Graph(bool directed = false);
 
-    // Core Operations
-    void addNode(const std::string& name);
-    void addEdge(const std::string& src, const std::string& dest, int weight = 1);
-    void removeNode(const std::string& name);
-    void removeEdge(const std::string& src, const std::string& dest);
-    
-    // Getters
-    const std::unordered_map<std::string, std::vector<std::pair<std::string, int>>>& getAdjList() const;
+    void setDirected(bool isDirected);
+    bool isDirected() const;
+
+    bool addNode(const std::string& name);
+    bool removeNode(const std::string& name);
+    bool addEdge(const std::string& from, const std::string& to, int weight = 1);
+    bool removeEdge(const std::string& from, const std::string& to);
+
+    std::vector<std::string> bfs(const std::string& start) const;
+    std::vector<std::string> dfs(const std::string& start) const;
+    std::vector<std::string> dijkstra(const std::string& start, const std::string& end) const;
+    std::vector<MSTEdge> prim(const std::string& start) const;
+
+    void printAdjacencyList() const;
+    void printAdjacencyMatrix() const;
+    void loadSampleNetwork();
+    void clear();
+
     std::vector<std::string> getNodes() const;
-    GraphMode getMode() const;
-    void setMode(GraphMode m);
+    const std::unordered_map<std::string, std::vector<Edge>>& getAdjacency() const;
+    std::size_t nodeCount() const;
 
-    // Algorithms (with terminal trace logic)
-    void bfs(const std::string& startNode);
-    void dfs(const std::string& startNode);
-    void dijkstra(const std::string& startNode, const std::string& targetNode);
-    void primMST();
+private:
+    bool directed;
+    std::unordered_map<std::string, std::vector<Edge>> adjacency;
 
-    // Matrix Representation
-    void displayAdjacencyMatrix() const;
+    bool hasNode(const std::string& name) const;
+    bool edgeExists(const std::string& from, const std::string& to) const;
+    void sortNeighbors(std::vector<Edge>& neighbors) const;
+    void printDistanceTable(const std::unordered_map<std::string, int>& distances) const;
 };
 
-#endif // GRAPH_H
+#endif
