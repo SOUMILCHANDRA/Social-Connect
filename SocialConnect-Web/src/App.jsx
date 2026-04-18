@@ -43,8 +43,8 @@ const App = () => {
   const triggerUpdate = () => setVersion(v => v + 1);
 
   const loadSamples = () => {
-    const samples = [['Alice', 'Bob', 3], ['Alice', 'Charlie', 1], ['Bob', 'Dave', 4], ['Bob', 'Eve', 2], ['Charlie', 'Frank', 5], ['Dave', 'Grace', 1], ['Eve', 'Henry', 3], ['Frank', 'Henry', 2], ['Grace', 'Henry', 6]];
-    ['Alice', 'Bob', 'Charlie', 'Dave', 'Eve', 'Frank', 'Grace', 'Henry'].forEach(n => graph.addNode(n));
+    const samples = [['Aarav', 'Ishani', 3], ['Aarav', 'Rohan', 1], ['Ishani', 'Priya', 4], ['Ishani', 'Arjun', 2], ['Rohan', 'Sneha', 5], ['Priya', 'Vihaan', 1], ['Arjun', 'Ananya', 3], ['Sneha', 'Ananya', 2], ['Vihaan', 'Ananya', 6]];
+    ['Aarav', 'Ishani', 'Rohan', 'Priya', 'Arjun', 'Sneha', 'Vihaan', 'Ananya'].forEach(n => graph.addNode(n));
     samples.forEach(([u, v, w]) => graph.addEdge(u, v, w));
     triggerUpdate();
   };
@@ -52,17 +52,20 @@ const App = () => {
   const renderGraph = () => {
     if (!d3Container.current) return;
     const { nodes, links } = graph.getD3Data();
-    const width = d3Container.current.clientWidth;
-    const height = d3Container.current.clientHeight;
-
     d3.select(d3Container.current).selectAll("*").remove();
-    const svg = d3.select(d3Container.current).append("svg")
-      .attr("viewBox", [0, 0, width, height]);
+    const svg = d3.select(d3Container.current).append("svg");
+    const width = 1000;
+    const height = 800;
+
+    svg.attr("viewBox", `0 0 ${width} ${height}`)
+       .attr("preserveAspectRatio", "xMidYMid meet");
 
     const simulation = d3.forceSimulation(nodes)
       .force("link", d3.forceLink(links).id(d => d.id).distance(120))
       .force("charge", d3.forceManyBody().strength(-300))
-      .force("center", d3.forceCenter(width / 2, height / 2));
+      .force("center", d3.forceCenter(width / 2, height / 2))
+      .force("x", d3.forceX(width / 2).strength(0.08))
+      .force("y", d3.forceY(height / 2).strength(0.08));
 
     const link = svg.append("g")
       .selectAll("line")

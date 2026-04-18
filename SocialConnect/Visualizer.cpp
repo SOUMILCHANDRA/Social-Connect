@@ -5,36 +5,36 @@
 #include <iomanip>
 #include <set>
 
-const std::string Visualizer::RESET   = "\033[0m";
-const std::string Visualizer::GREEN   = "\033[32m";
-const std::string Visualizer::YELLOW  = "\033[33m";
-const std::string Visualizer::RED     = "\033[31m";
-const std::string Visualizer::CYAN    = "\033[36m";
-const std::string Visualizer::MAGENTA = "\033[35m";
-const std::string Visualizer::BOLD    = "\033[1m";
+const std::string Visualizer::RESET_S   = "\033[0m";
+const std::string Visualizer::GREEN_S   = "\033[32m";
+const std::string Visualizer::YELLOW_S  = "\033[33m";
+const std::string Visualizer::RED_S     = "\033[31m";
+const std::string Visualizer::CYAN_S    = "\033[36m";
+const std::string Visualizer::MAGENTA_S = "\033[35m";
+const std::string Visualizer::BOLD_S    = "\033[1m";
 
 void Visualizer::printHeader(const std::string& title) {
-    std::cout << "\n" << BOLD << CYAN << "═══ " << title << " ═══" << RESET << "\n";
+    std::cout << "\n" << BOLD_S << CYAN_S << "═══ " << title << " ═══" << RESET_S << "\n";
     std::cout.flush();
 }
 
 void Visualizer::printInfo(const std::string& message) {
-    std::cout << CYAN << message << RESET << "\n";
+    std::cout << CYAN_S << message << RESET_S << "\n";
     std::cout.flush();
 }
 
 void Visualizer::printSuccess(const std::string& message) {
-    std::cout << GREEN << message << RESET << "\n";
+    std::cout << GREEN_S << message << RESET_S << "\n";
     std::cout.flush();
 }
 
 void Visualizer::printWarning(const std::string& message) {
-    std::cout << YELLOW << "[!] " << message << RESET << "\n";
+    std::cout << YELLOW_S << "[!] " << message << RESET_S << "\n";
     std::cout.flush();
 }
 
 void Visualizer::printError(const std::string& message) {
-    std::cerr << RED << message << RESET << "\n";
+    std::cerr << RED_S << message << RESET_S << "\n";
     std::cerr.flush();
 }
 
@@ -47,7 +47,7 @@ void Visualizer::displayAdjList(const Graph& graph) {
     for (const auto& pair : graph.getAdjList()) {
         const std::string& node = pair.first;
         const auto& neighbors = pair.second;
-        std::cout << "  " << BOLD << node << RESET << " -> [";
+        std::cout << "  " << BOLD_S << node << RESET_S << " -> [";
         for (size_t i = 0; i < neighbors.size(); ++i) {
             std::cout << neighbors[i].first << "(" << neighbors[i].second << ")";
             if (i < neighbors.size() - 1) std::cout << ", ";
@@ -103,7 +103,7 @@ void Visualizer::generateHTML(const Graph& graph, const std::string& filename) {
     linksJson << "\n    ]";
 
     // The full HTML template with the dynamic data injected
-    file << R"(<!DOCTYPE html>
+    file << R"HTML(<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -405,17 +405,20 @@ void Visualizer::generateHTML(const Graph& graph, const std::string& filename) {
 
     <script>
         // Initial Data from C++
-        let nodes = )" << nodesJson.str() << R"(;
-        let links = )" << linksJson.str() << R"(;
-        let directed = )" << (graph.getMode() == GraphMode::DIRECTED ? "true" : "false") << R"(;
+        let nodes = )HTML" << nodesJson.str() << R"HTML(;
+        let links = )HTML" << linksJson.str() << R"HTML(;
+        let directed = )HTML" << (graph.getMode() == GraphMode::DIRECTED ? "true" : "false") << R"HTML(;
         
         let highlightState = { nodes: new Set(), links: new Set() };
 
         // D3 Setup
         const graphPanel = document.getElementById("graph-panel");
-        const svg = d3.select("#graph-panel").append("svg");
-        const width = () => graphPanel.clientWidth;
-        const height = () => graphPanel.clientHeight;
+        const svg = d3.select("#graph-panel").append("svg")
+            .attr("viewBox", "0 0 1000 800")
+            .attr("preserveAspectRatio", "xMidYMid meet");
+        
+        const width = 1000;
+        const height = 800;
 
         // Visual Definitions
         const defs = svg.append("defs");
@@ -457,9 +460,9 @@ void Visualizer::generateHTML(const Graph& graph, const std::string& filename) {
         const simulation = d3.forceSimulation(nodes)
             .force("link", d3.forceLink(links).id(d => d.id).distance(120))
             .force("charge", d3.forceManyBody().strength(-300))
-            .force("center", d3.forceCenter(width() / 2, height() / 2))
-            .force("x", d3.forceX(width() / 2).strength(0.05))
-            .force("y", d3.forceY(height() / 2).strength(0.05))
+            .force("center", d3.forceCenter(width / 2, height / 2))
+            .force("x", d3.forceX(width / 2).strength(0.08))
+            .force("y", d3.forceY(height / 2).strength(0.08))
             .force("collision", d3.forceCollide(35));
 
         // Initial mapping for source/target if they are strings
@@ -485,8 +488,8 @@ void Visualizer::generateHTML(const Graph& graph, const std::string& filename) {
 
             nodeGroup.selectAll(".node")
                 .attr("transform", d => {
-                    d.x = Math.max(30, Math.min(width() - 30, d.x));
-                    d.y = Math.max(30, Math.min(height() - 30, d.y));
+                    d.x = Math.max(30, Math.min(width - 30, d.x));
+                    d.y = Math.max(30, Math.min(height - 30, d.y));
                     return `translate(${d.x},${d.y})`;
                 });
         });
@@ -522,7 +525,7 @@ void Visualizer::generateHTML(const Graph& graph, const std::string& filename) {
 
             const nEnter = n.enter().append("g")
                 .attr("class", "node")
-                .attr("transform", d => `translate(${width()/2},${height()/2})`) // Spawn at center
+                .attr("transform", d => `translate(${width/2},${height/2})`) // Spawn at center
                 .call(d3.drag()
                     .on("start", dragstarted)
                     .on("drag", dragged)
@@ -535,7 +538,13 @@ void Visualizer::generateHTML(const Graph& graph, const std::string& filename) {
 
             simulation.nodes(nodes);
             simulation.force("link").links(links);
-            simulation.alpha(0.5).restart();
+            
+            // Fixed center for robust layout
+            simulation.force("center", d3.forceCenter(width / 2, height / 2));
+            simulation.force("x", d3.forceX(width / 2).strength(0.08));
+            simulation.force("y", d3.forceY(height / 2).strength(0.08));
+            
+            simulation.alpha(1).restart();
         }
 
         function dragstarted(event, d) {
@@ -592,8 +601,8 @@ void Visualizer::generateHTML(const Graph& graph, const std::string& filename) {
             }
             nodes.push({ 
                 id, 
-                x: width() / 2 + (Math.random() - 0.5) * 60,
-                y: height() / 2 + (Math.random() - 0.5) * 60
+                x: width / 2 + (Math.random() - 0.5) * 60,
+                y: height / 2 + (Math.random() - 0.5) * 60
             });
             logTerm("ADD NODE", `Added: ${id}`, [`Current nodes: ${nodes.length}`], "");
             document.getElementById("nodeInput").value = "";
@@ -641,19 +650,19 @@ void Visualizer::generateHTML(const Graph& graph, const std::string& filename) {
         window.loadSampleNetwork = function() {
             nodes = [];
             links = [];
-            const users = ["Alice", "Bob", "Charlie", "Dave", "Eve", "Frank", "Grace", "Henry"];
+            const users = ["Aarav", "Ishani", "Rohan", "Priya", "Arjun", "Sneha", "Vihaan", "Ananya"];
             users.forEach(id => nodes.push({ 
                 id, 
-                x: width() / 2 + (Math.random() - 0.5) * 100,
-                y: height() / 2 + (Math.random() - 0.5) * 100
+                x: width / 2 + (Math.random() - 0.5) * 100,
+                y: height / 2 + (Math.random() - 0.5) * 100
             }));
             
             const sampleLinks = [
-                {s:"Alice", t:"Bob", w:3}, {s:"Alice", t:"Charlie", w:1},
-                {s:"Bob", t:"Dave", w:4}, {s:"Bob", t:"Eve", w:2},
-                {s:"Charlie", t:"Frank", w:5}, {s:"Dave", t:"Grace", w:1},
-                {s:"Eve", t:"Henry", w:3}, {s:"Frank", t:"Henry", w:2},
-                {s:"Grace", t:"Henry", w:6}
+                {s:"Aarav", t:"Ishani", w:3}, {s:"Aarav", t:"Rohan", w:1},
+                {s:"Ishani", t:"Priya", w:4}, {s:"Ishani", t:"Arjun", w:2},
+                {s:"Rohan", t:"Sneha", w:5}, {s:"Priya", t:"Vihaan", w:1},
+                {s:"Arjun", t:"Ananya", w:3}, {s:"Sneha", t:"Ananya", w:2},
+                {s:"Vihaan", t:"Ananya", w:6}
             ];
             
             sampleLinks.forEach(l => {
@@ -863,7 +872,7 @@ void Visualizer::generateHTML(const Graph& graph, const std::string& filename) {
     </script>
 </body>
 </html>
-)";
+)HTML";
 
     file.close();
     printSuccess("> Visualization generated: " + filename);

@@ -10,26 +10,26 @@
 void loadSampleData(Graph& g) {
     Visualizer::printHeader("LOADING SAMPLE NETWORK");
     
-    // Users
-    std::vector<std::string> users = {"Alice", "Bob", "Charlie", "Dave", "Eve", "Frank", "Grace", "Henry"};
+    // Users (Indian Names)
+    std::vector<std::string> users = {"Aarav", "Ishani", "Rohan", "Priya", "Arjun", "Sneha", "Vihaan", "Ananya"};
     for (auto const& u : users) g.addNode(u);
 
     // Edges with weights
-    g.addEdge("Alice", "Bob", 3);
-    g.addEdge("Alice", "Charlie", 1);
-    g.addEdge("Bob", "Dave", 4);
-    g.addEdge("Bob", "Eve", 2);
-    g.addEdge("Charlie", "Frank", 5);
-    g.addEdge("Dave", "Grace", 1);
-    g.addEdge("Eve", "Henry", 3);
-    g.addEdge("Frank", "Henry", 2);
-    g.addEdge("Grace", "Henry", 6);
+    g.addEdge("Aarav", "Ishani", 3);
+    g.addEdge("Aarav", "Rohan", 1);
+    g.addEdge("Ishani", "Priya", 4);
+    g.addEdge("Ishani", "Arjun", 2);
+    g.addEdge("Rohan", "Sneha", 5);
+    g.addEdge("Priya", "Vihaan", 1);
+    g.addEdge("Arjun", "Ananya", 3);
+    g.addEdge("Sneha", "Ananya", 2);
+    g.addEdge("Vihaan", "Ananya", 6);
 
-    Visualizer::printSuccess("> Sample social network loaded successfully!");
+    Visualizer::printSuccess("> Sample social network (India Region) loaded successfully!");
 }
 
 void showMenu() {
-    std::cout << "\n" << Visualizer::BOLD << Visualizer::CYAN << "--- SOCIALCONNECT MAIN MENU ---" << Visualizer::RESET << "\n";
+    std::cout << "\n" << Visualizer::BOLD_S << Visualizer::CYAN_S << "--- SOCIALCONNECT MAIN MENU ---" << Visualizer::RESET_S << "\n";
     std::cout << "1.  Add User (Node)\n";
     std::cout << "2.  Add Connection (Edge)\n";
     std::cout << "3.  Remove User\n";
@@ -55,7 +55,7 @@ int main() {
     int choice = -1;
 
     Visualizer::printHeader("WELCOME TO SOCIALCONNECT");
-    std::cout << "Starting in " << Visualizer::GREEN << "UNDIRECTED" << Visualizer::RESET << " mode (Friendships).\n";
+    std::cout << "Starting in " << Visualizer::GREEN_S << "UNDIRECTED" << Visualizer::RESET_S << " mode (Friendships).\n";
 
     while (true) {
         showMenu();

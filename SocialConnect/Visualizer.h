@@ -23,13 +23,13 @@
 class Visualizer {
 public:
     // Terminal Colors (ANSI)
-    static const std::string RESET;
-    static const std::string GREEN;
-    static const std::string YELLOW;
-    static const std::string RED;
-    static const std::string CYAN;
-    static const std::string MAGENTA;
-    static const std::string BOLD;
+    static const std::string RESET_S;
+    static const std::string GREEN_S;
+    static const std::string YELLOW_S;
+    static const std::string RED_S;
+    static const std::string CYAN_S;
+    static const std::string MAGENTA_S;
+    static const std::string BOLD_S;
 
     // Output Helpers
     static void printHeader(const std::string& title);
