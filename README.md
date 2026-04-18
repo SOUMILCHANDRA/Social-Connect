@@ -1,82 +1,73 @@
-# 🌐 SocialConnect: Graph Network Visualizer
+# 🌐 SocialConnect: Research-Grade Graph Analysis Tool
 
-**SocialConnect** is a high-performance C++ tool designed to simulate and visualize social network structures using advanced Graph data structures and algorithms. Whether you're tracking friendships (Undirected) or follows (Directed), SocialConnect provides deep insights into network depth and connectivity.
+**SocialConnect** is a professional-grade C++ ecosystem designed for the simulation, analysis, and visualization of complex social network topologies. It combines high-performance algorithmic logic with a modern, dual-interface visualization stack (Terminal ANSI + D3.js Web).
+
+---
+
+## 🎨 Unified Experience
+SocialConnect offers three distinct ways to interact with your data:
+1.  **C++ Terminal (Core)**: Verbose algorithm tracing with ANSI color-coding.
+2.  **Standalone Visualizer (`viz.html`)**: A generated, self-contained D3.js research tool.
+3.  **React Dashboard**: A high-speed, interactive web dashboard built with Vite and React.
 
 ---
 
 ## ✨ Features
 
-### 🧠 Core Algorithms
-*   **BFS (Find Network):** Discover immediate and 2nd-degree connections.
-*   **DFS (Deep Explore):** Explore the structural depth of the network.
-*   **Dijkstra's Algorithm:** Find the shortest path between users based on relationship strength (1-10).
-*   **Prim's Algorithm (MST):** Identify the minimum spanning tree, showing the most efficient way to connect the entire network.
+### 🧠 Core Algorithmic Engine
+*   **BFS (Relationship Discovery)**: Discover network breadth and tiered connectivity.
+*   **DFS (Depth Exploration)**: Explore structural depth and recursive paths.
+*   **Dijkstra's Algorithm**: Calculate mathematically optimal paths based on relationship weight (1-10).
+*   **Prim's MST**: Identify the network "skeleton" that connects all users with minimum cost.
 
-### 📊 Data Representations
-*   **Adjacency List:** Efficient storage using `unordered_map` for large networks.
-*   **Adjacency Matrix:** Grid-based view for small, dense networks.
-
-### 🎨 Visualizations
-*   **Terminal Visuals:** Color-coded, verbose step-by-step trace of every algorithm.
-*   **Web Visualizer:** Interactive D3.js force-directed graph with drag-and-drop nodes.
+### 📊 Professional Data Architecture
+*   **Regional Localization**: Ships with a pre-configured Indian-region dataset (**Aarav, Ishani, Rohan, Priya, Arjun, Sneha, Vihaan, Ananya**).
+*   **Hybrid Storage**: Utilizing specialized STL containers (`unordered_map` and adjacency vectors) for $O(1)$ and $O(V+E)$ performance.
+*   **Robust Centering**: Visualizations use a standardized `1000x800` coordinate system and force-directed logic for perfect centering across all devices.
 
 ---
 
 ## 🚀 Getting Started
 
-### Prerequisites
-*   **C++17 Compiler** (GCC/MinGW recommended)
-*   **Node.js** (Optional, for hosting the web visualizer)
-
-### 🛠️ Compilation
-Compile all source files using the following command:
-```bash
-g++ -std=c++17 main.cpp Graph.cpp Visualizer.cpp -o socialconnect
+### 🛠️ Backend (C++ Core)
+Compile using a C++17 compliant compiler:
+```powershell
+g++ -std=c++17 main.cpp Graph.cpp Visualizer.cpp -o SocialConnect
+./SocialConnect
 ```
 
-### 🏃 Running the Application
-Launch the terminal interface:
-```bash
-./socialconnect
+### ⚛️ Frontend (React Dashboard)
+Experience the full interactive dashboard:
+```powershell
+cd SocialConnect-Web
+npm install
+npm run dev
+```
+Navigate to `http://localhost:5173/` to see the real-time graph.
+
+---
+
+## 📂 Project Ecosystem
+```text
+├── SocialConnect/
+│   ├── main.cpp          # System entry point & CLI
+│   ├── Graph.cpp         # Algorithmic implementations
+│   ├── Visualizer.cpp    # HTML Generation Template & ANSI logic
+│   └── viz.html          # Generated research tool
+└── SocialConnect-Web/
+    ├── src/
+    │   ├── App.jsx       # React application logic
+    │   └── GraphLogic.js # D3 Implementation
+    └── index.html        # Web entry
 ```
 
 ---
 
-## 📖 How to Use Properly
-
-### 1. Building the Network
-1.  **Start fresh or Load Samples:** Use option `11` in the menu to load a pre-built network of 8 users (Alice through Henry).
-2.  **Add Users:** Use option `1` to add new individuals to your network.
-3.  **Create Connections:** Use option `2` to define relationships. You can provide a weight (1-10) to represent the "Strength" of the connection.
-
-### 2. Running Algorithms
-*   **Finding Shortest Path:** Select option `7`, enter the names of two users, and watch the algorithm "relax" edges in real-time to find the best path.
-*   **Exploring Connectivity:** Use BFS (`5`) to find "people you may know" or DFS (`6`) to traverse the graph's depth.
-*   **MST Analysis:** Use option `8` to find the skeleton of your network that connects everyone with the minimum total connection weight.
-
-### 3. Using the Web Visualizer
-1.  Inside the application, select **Option 12** to "Generate D3.js Visualization".
-2.  This creates a file named `viz.html`.
-3.  To host it locally and see live updates, run:
-    ```bash
-    npx serve .
-    ```
-4.  Open `http://localhost:3000/viz.html` in your browser.
+## 📈 Design Philosophy
+SocialConnect is built with an **Academic/Research aesthetic**:
+*   **Typography**: IBM Plex Sans (Labels) and JetBrains Mono (Terminal).
+*   **Color Palette**: Midnight Dark (`#0b0e14`) with Ice Blue (`#4fc3f7`) accents.
+*   **Stability**: D3 Force Simulation is hardened with `1000x800` viewport constraints to ensure zero-overlap and zero-offscreen spawning.
 
 ---
-
-## 📂 Project Structure
-*   `main.cpp`: Interactive menu logic and user input handling.
-*   `Graph.cpp / .h`: Core implementations of graph algorithms and data structures.
-*   `Visualizer.cpp / .h`: Terminal styling (ANSI) and HTML/D3 generation logic.
-*   `.gitignore`: Excludes binaries and generated artifacts.
-
----
-
-## 🛠️ Tech Stack
-*   **Language:** C++17
-*   **Data Structures:** STL (`unordered_map`, `priority_queue`, `stack`, `queue`)
-*   **Visualization:** D3.js (Data-Driven Documents)
-
----
-*Created with ❤️ by Antigravity for SocialConnect.*
+*Maintained by the SocialConnect Core Team.*
