@@ -70,4 +70,4 @@ SocialConnect is built with an **Academic/Research aesthetic**:
 *   **Stability**: D3 Force Simulation is hardened with `1000x800` viewport constraints to ensure zero-overlap and zero-offscreen spawning.
 
 ---
-*Maintained by the SocialConnect Core Team.*
+*Maintained by the Soumil Chandra*
